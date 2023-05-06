@@ -1,7 +1,7 @@
 <?php 
-namespace _Frm_core;
+namespace DafCore;
 
-abstract class DbModel
+abstract class AutoConstruct
 {
     public function __construct()
     {
@@ -13,9 +13,10 @@ abstract class DbModel
             $fn = "__construct" . $numberOfArguments
         );
 
-        if ($numberOfArguments < 1) {
-            $this->__construct0();
-        } else if ($constructor) {
+        if ($numberOfArguments < 1)
+            return;
+            
+        if ($constructor) {
             call_user_func_array([$this, $fn], $arguments);
         } else {
             $args_count = count($arguments);
@@ -30,7 +31,6 @@ abstract class DbModel
     public function __construct0()
     {
     }
-    public abstract function table_schema();
 }
 
 ?>

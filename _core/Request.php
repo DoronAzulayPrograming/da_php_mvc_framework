@@ -1,6 +1,6 @@
 <?php 
 
-    namespace _Frm_core;
+    namespace DafCore;
     
     class Request{
         public function getPath(){

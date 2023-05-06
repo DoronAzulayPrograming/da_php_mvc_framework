@@ -1,6 +1,6 @@
 <?php 
 
-namespace da_db;
+namespace DafCore\Db;
 
 
 interface ITableQuery extends ITableQueryGenerator{

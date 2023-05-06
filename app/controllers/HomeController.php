@@ -1,9 +1,15 @@
 <?php 
 
 namespace App\Controllers;
-use _Frm_core\Controller;
+use DafCore\Controller;
 
 class HomeController extends Controller{
+
+    private $productsService;
+    public function __construct($productsService)
+    {
+        $this->productsService = $productsService;
+    }
 
     public function index(){
         return $this->view("index");
