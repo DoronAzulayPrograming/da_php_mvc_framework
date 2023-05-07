@@ -5,6 +5,7 @@
     class Router{
         public $request;
         public $response;
+        private $route_params = [];
 
         protected $routes = [];
         protected $method = 'index';
@@ -72,10 +73,46 @@
             return $status;
         }
 
+        public function getRoute($method, $path)
+        {
+            $route = $this->routes[$method][$path] ?? false;
+            if ($route === false) {
+                foreach ($this->routes[$method] as $key => $value) {
+                    if (strpos($key, ":")) {
+                        $t = explode("/", $key);
+                        $count = count(array_filter($t, function($value) {
+                            return strpos($value, ":") !== false;
+                        }));
+                        $str = implode("/", array_filter($t, function($value) {
+                            return strpos($value, ":") === false;
+                        }));
+        
+                        if (strpos($path, $str) !== false) {
+                            $pathRes = str_replace($str, "", $path);
+                            $params = array_filter(explode("/", $pathRes), function($value) {
+                                return !is_null($value) && $value !== '';
+                            });
+                            if (count($params) === $count) {
+                                $pathRes = str_replace($str, "", $key);
+                                $t = array_filter(explode("/", $pathRes), function($value) {
+                                    return !is_null($value) && $value !== '';
+                                });
+                                foreach ($params as $k1 => $value) {
+                                    $this->route_params[str_replace(":", "", $t[$k1])] = $value;
+                                }
+                                return $this->routes[$method][$key];
+                            }
+                        }
+                    }
+                }
+            }
+            return $route;
+        }
+
         public function resolve(){
             $path = $this->request->getPath();
             $method =  $this->request->getMethod();
-            $middlewheres = $this->routes[$method][$path] ?? false;
+            $middlewheres = $this->getRoute($method, $path);
 
             if($middlewheres === false){
                 return $this->response->notFound();
@@ -156,6 +193,10 @@
 
                 if(array_key_exists($p_name, $request_params)){
                     array_push($result, $request_params[$p_name]);
+                }
+
+                if(array_key_exists($p_name, $this->route_params)){
+                    array_push($result, $this->route_params[$p_name]);
                 }
             }
             return $result;
