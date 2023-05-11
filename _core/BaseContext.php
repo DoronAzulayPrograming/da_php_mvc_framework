@@ -27,6 +27,7 @@ interface ISelectQueryGenerator{
     public function limit($limit);
     public function insert($data);
     public function update($data);
+    public function delete();
 }
 
 class MySqlQueries implements ITableQuery, ISelectQuery{
@@ -72,48 +73,6 @@ class MySqlQueries implements ITableQuery, ISelectQuery{
         $this->baseContext->releaseConnection($this->connection);
     }
 
-    private function _gettype($var)
-    {
-        if ($var == null)
-            return \PDO::PARAM_STR;
-        if (is_string($var))
-            return \PDO::PARAM_STR;
-        if (is_float($var))
-            return \PDO::PARAM_STR;
-        if (is_int($var))
-            return \PDO::PARAM_INT;
-        return \PDO::PARAM_BOOL;
-    }
-    // public function query($query): self
-    // {
-    //     if (!$this->query_closed) {
-    //         $this->query->closeCursor();
-    //     }
-        
-    //     if ($this->query = $this->connection->prepare($query)) {
-    //         $this->doFetchMode();
-    //         $params = [];
-    //         if (func_num_args() > 1) {
-    //             $x = func_get_args();
-    //             $params = array_slice($x, 1)[0];
-    //         }
-            
-    //         if(!empty($params)){
-    //             foreach ($params as $key => $value) {
-    //                 $this->query->bindParam(":$key", $value, $this->_gettype($value));
-    //             }
-    //         }
-            
-    //         if (!$this->query->execute()) {
-    //             $this->baseContext->error(' -  Unable to process MySQL query (check your params)', $this->query->errorInfo());
-    //         }
-    //         $this->query_closed = FALSE;
-    //         $this->query_count++;
-    //     } else {
-    //         $this->baseContext->error(' -  Unable to prepare MySQL statement (check your syntax)', $this->connection->errorInfo());
-    //     }
-    //     return $this;
-    // }
     public function query($query): self
     {
         if (!$this->query_closed) {
@@ -181,6 +140,11 @@ class MySqlQueries implements ITableQuery, ISelectQuery{
         return $this;
     }
   
+    public function get_connection() :\PDO
+    {
+        return $this->connection;
+    }
+  
     public function pdo() :\PDOStatement
     {
         return $this->query;
@@ -239,6 +203,12 @@ class MySqlQueries implements ITableQuery, ISelectQuery{
 // </editor-fold>
 
 // <editor-fold defaultstate="collapsed" desc="QueryGenerator Region">
+
+    public function delete() : ISelectQuery
+    {
+        $this->selectQueryGenerator->delete();
+        return $this;
+    }
 
     public function select($columns = "*") : ISelectQuery
     {
@@ -395,6 +365,7 @@ class MySQLTableQueryGenerator{
 class MySQLSelectQueryGenerator
 {
     protected $need_to_close = false;
+    protected $isDelete = false;
     protected $table;
     protected $select = [];
     protected $where = [];
@@ -408,12 +379,13 @@ class MySQLSelectQueryGenerator
 
     public function is_ready(){
         if(
-            empty($this->select) &&
-            empty($this->insertData) &&
-            empty($this->updateData)
-        ) return false;
+            ($this->isDelete && !empty($this->where))  ||
+            !empty($this->select) ||
+            !empty($this->insertData) ||
+            !empty($this->updateData)
+        ) return true;
         
-        return true;
+        return false;
     }
 
     public function table($table, ?string $alias = null)
@@ -424,6 +396,11 @@ class MySQLSelectQueryGenerator
             $this->table = "$table AS $alias";
         }
         return $this;
+    }
+
+    public function delete(){
+        $this->need_to_close = true;
+        $this->isDelete = true;
     }
 
     public function from($table, ?string $alias = null)
@@ -571,6 +548,11 @@ class MySQLSelectQueryGenerator
         if (!empty($this->insertData)) {
             $query = $this->insert_data_logic($query);
 
+        } else if ($this->isDelete) {
+
+            $query = "DELETE FROM $this->table";
+            $query = $this->where_logic($query);
+            
         } else if (!empty($this->updateData)) {
 
             $query = $this->update_data_logic($query);
@@ -676,6 +658,7 @@ interface IDbSetSelectQueryy{
     public function limit($limit);
     public function insert($data);
     public function update($data);
+    public function delete();
 }
 
 class DbSet implements IDbSetTableQuery, IDbSetSelectQueryy{
@@ -696,6 +679,11 @@ class DbSet implements IDbSetTableQuery, IDbSetSelectQueryy{
     {
         $this->mySqlQueries->execute();
         return $this;
+    }
+
+    public function lastInsertId()
+    {
+        return $this->mySqlQueries->get_connection()->lastInsertId();
     }
     
     public function fetchAll() : array{
@@ -738,6 +726,12 @@ class DbSet implements IDbSetTableQuery, IDbSetSelectQueryy{
 
 
 // <editor-fold defaultstate="collapsed" desc="QueryGenerator Region">
+
+    public function delete() : IDbSetSelectQueryy
+    {
+        $this->mySqlQueries->delete();
+        return $this;
+    }
 
     public function select($columns = "*") : IDbSetSelectQueryy
     {

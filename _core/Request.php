@@ -4,7 +4,7 @@
     
     class Request{
         public function getPath(){
-            $path = $_GET['url']; // ?? '/'; // $_SERVER['REQUEST_URI'] $_GET['url']
+            $path = $_SERVER['REQUEST_URI'];// ?? '/'; // $_SERVER['REQUEST_URI'] $_GET['url']
             //$path = str_replace("mvc/","",$path);
             $position = strpos($path,'?');
             if($position === false){
@@ -31,6 +31,9 @@
 
         public function getPost(){
             $params = [];
+            if(!count($_POST)){
+                return json_decode(file_get_contents("php://input"));
+            }
             foreach($_POST as $key => $value){
                 $params[$key] = filter_input(INPUT_POST, $key, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             }

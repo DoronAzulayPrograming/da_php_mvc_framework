@@ -93,6 +93,7 @@ class Response {
     public function send($obj = null, $json_stringify = false) {
         if($obj && $json_stringify){
             $this->setBody($this->json_stringify($obj));
+            $this->setHeader("Content-Type", "application/json; charset=utf-8");
         }else if($obj){
             $this->setBody($obj);
         }
