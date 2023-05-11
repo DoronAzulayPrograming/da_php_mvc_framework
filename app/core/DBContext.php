@@ -10,7 +10,7 @@ class DBContext extends BaseContext
 {
     public $Products;
     public function __construct() {
-        parent::__construct("localhost",3306,"doron_mt_test","doron_mt_test","test123",10);
+        parent::__construct("localhost",3306,"db_name","db_username","db_password", 10);
 
         $this->Products = (new DBSet($this, Product::class, "Products"))
         //->drop()->execute()
