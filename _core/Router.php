@@ -64,7 +64,7 @@ use stdClass;
                         break;
                     }
                 } catch (\Throwable $th) {
-                    $this->response->badRequest($th->getMessage());
+                    $this->badRequest($th->getMessage());
                     $status = false;
                     break;
                 }
@@ -119,7 +119,7 @@ use stdClass;
             $middlewheres = $this->getRoute($method, $path);
         
             if ($middlewheres === false) {
-                return $this->response->notFound();
+                return $this->notFound("the url=$path  request not found");
             }
         
             // Pop endpoint callback from middlewheres
@@ -157,14 +157,14 @@ use stdClass;
         
             // Endpoint - Validate Request
             if ($callback_params_len !== $func_params_len) {
-                return $this->response->badRequset("$callback_params_len passed and exactly $func_params_len expected");
+                return $this->badRequest("$callback_params_len passed and exactly $func_params_len expected");
             }
         
             // Run Endpoint
             try {
                 return call_user_func($callback, ...$callback_params);
             } catch (\Throwable $th) {
-                return $this->response->badRequset($th->getMessage());
+                return $this->badRequest($th->getMessage());
             }
         }
 
@@ -185,8 +185,7 @@ use stdClass;
         public function get_dependencies($params){
             $result = [];
             $services = Application::$app->services;
-            $request_params = $this->request->getBody();
-            $request_params_is_std_class = ($request_params instanceof stdClass);
+            $request_params = $this->request->getParams();
 
             foreach ($params as $param) {
                 $p_name = $param->getName();
@@ -195,7 +194,7 @@ use stdClass;
                     $result[] = $services->getService($p_name);
                 }
 
-                if(!$request_params_is_std_class && array_key_exists($p_name, $request_params)){
+                if(array_key_exists($p_name, $request_params)){
                     $result[] =  $request_params[$p_name];
                 }
 
@@ -237,6 +236,20 @@ use stdClass;
                 include_once "app/views/".$view.".php";
                 return ob_get_clean();
             }else return $view;
+        }
+
+        private function badRequest($msg = null){
+            return $this->response->badRequest(
+                "<h1>Bad Requset</h1>".
+                ($msg ? "<b>Error:</b><p>$msg</p>" : "")
+            );
+        }
+
+        private function notFound($msg = null){
+            return $this->response->notFound(
+                "<h1>Not Found</h1>".
+                ($msg ? "<b>Error:</b><p>$msg</p>" : "")
+            );
         }
     }
 ?>

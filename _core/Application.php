@@ -20,6 +20,7 @@
             $this->services = new ServiceCollection;
             $this->services->addSingleton("req", function(){return new Request;});
             $this->services->addScop("res", function(){return new Response;});
+            $this->services->addScop("body", function($x){return $x->getService("req")->getBody();});
 
             $this->controller = new Controller;
             $this->baseDir = $dir;

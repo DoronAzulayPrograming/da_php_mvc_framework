@@ -1,7 +1,11 @@
 <?php
     namespace DafCore;
     
-    class Controller{
+    interface IController{
+        function getLayout();
+    }
+    
+    class ControllerBase implements IController{
         private $layout = "main";
 
         public function getLayout(){
@@ -11,18 +15,29 @@
         protected function setLayout($layout){
             $this->layout = $layout;
         }
-                
-        public function badRequset($msg = null, $view = null){
+
+        protected function redirect($location = ""){
+            header('Location: ' . Application::$app->basePath . $location);
+        }
+        
+        protected function redirectBack(){
+            header('Location: ' . $_SERVER['HTTP_REFERER']);
+        }
+    }
+    
+    class Controller extends ControllerBase{
+                 
+        public function badRequset($msg = null, $view = "_400"){
             Application::$app->response->setStatus(400);
-            if($view)
+            if(!empty($view))
                 return Application::$app->router->getViewContent($view, ["msg"=>$msg]);
 
-            return Application::$app->response->badRequset($msg);
+            return Application::$app->response->badRequest($msg);
         }
 
-        public function notFound($msg = null, $view = null){
+        public function notFound($msg = null, $view = "_404"){
             Application::$app->response->setStatus(404);
-            if($view)
+            if(!empty($view))
                 return Application::$app->router->getViewContent($view, ["msg"=>$msg]);
 
             return Application::$app->response->notFound($msg);
@@ -37,12 +52,5 @@
             return Application::$app->router->renderView($view, $params);
         }
 
-        public function redirect($location = ""){
-            header('Location: ' . Application::$app->basePath . $location);
-        }
-        
-        public function redirectBack(){
-            header('Location: ' . $_SERVER['HTTP_REFERER']);
-        }
     }
 ?>

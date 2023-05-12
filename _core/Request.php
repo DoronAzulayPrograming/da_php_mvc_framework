@@ -43,11 +43,8 @@
         public function getBody(){
             $method = $this->getMethod();
             $body = [];
-            if($method === 'get'){
-                $body = $this->getParams();
-            }
-            else if($method === 'post'){
-                $body = $this->getPost();
+            if($method === 'post'){
+                $body = (object)$this->getPost();
             }
             else if($method === 'put'){
                 $body = $this->getPut();

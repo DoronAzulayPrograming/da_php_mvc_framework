@@ -8,8 +8,7 @@ class Response {
     private $body;
 
     public function __construct($statusCode = 200, $reasonPhrase = null) {
-        $this->statusCode = $statusCode;
-        $this->reasonPhrase = $reasonPhrase;
+        $this->status($statusCode, $reasonPhrase);
         $this->headers = [];
         $this->body = '';
     }
@@ -38,22 +37,6 @@ class Response {
         return $this;
     }
 
-    public function badRequset($msg = null){
-        $this->status(400)
-        ->send(
-            "<h1>Bad Requset</h1>".
-            ($msg ? "<b>Error:</b><p>$msg</p>" : "")
-        );
-    }
-
-    public function NotFound($msg = null){
-        $this->status(404)
-        ->send(
-            "<h1>Not Found</h1>".
-            ($msg ? "<b>Error:</b><p>$msg</p>" : "")
-        );
-    }
-
     public function setStatus($statusCode, $reasonPhrase = null){
         $this->statusCode = $statusCode;
         $this->reasonPhrase = $reasonPhrase ? $reasonPhrase : $this->getHttpStatusReasonPhrase($statusCode);
@@ -64,10 +47,6 @@ class Response {
 
     public function getStatus() {
         return $this->statusCode;
-    }
-
-    public function setReasonPhrase($reasonPhrase) {
-        $this->reasonPhrase = $reasonPhrase;
     }
 
     public function getReasonPhrase() {
@@ -82,20 +61,14 @@ class Response {
         return $this->headers;
     }
 
-    public function setBody($body) {
-        $this->body = $body;
-    }
-
-    public function getBody() {
-        return $this->body;
-    }
-
     public function send($obj = null, $json_stringify = false) {
+        $this->body = !empty($obj) ? $obj : " "; 
+        
         if($obj && $json_stringify){
-            $this->setBody($this->json_stringify($obj));
+            $this->body = $this->json_stringify($obj);
             $this->setHeader("Content-Type", "application/json; charset=utf-8");
         }else if($obj){
-            $this->setBody($obj);
+            $this->body = $obj;
         }
 
         $this->setStatus($this->statusCode);
@@ -103,6 +76,7 @@ class Response {
         foreach ($this->headers as $name => $value) {
             header(sprintf('%s: %s', $name, $value));
         }
+
         echo $this->body;
 
         $this->reset();
@@ -194,5 +168,115 @@ class Response {
                 return 'Internal Server Error';
         }
     }
+
+    public function ok($obj = null){
+        $this->status(200);
+        if($obj)
+        {
+            if(!(is_array($obj) || is_object($obj))){
+                $this->send($obj);
+            }
+            else $this->send($this->json_stringify($obj));
+        }
+        else $this->send();
+    }
+
+    public function created($obj = null){
+        $this->status(201);
+        if($obj)
+        {
+            if(!(is_array($obj) || is_object($obj))){
+                $this->send($obj);
+            }
+            else $this->send($this->json_stringify($obj));
+        }
+        else $this->send();
+    }
+    
+    public function noContent(){
+        $this->status(204)->send();
+    }
+
+    public function badRequest($msg = null){
+        $this->status(400)->send($msg);
+    }
+
+    public function notFound($msg = null){
+        $this->status(404)->send($msg);
+    }
+
+    public function forbidden($msg = null){
+        $this->status(403)->send($msg);
+    }
+
+    public function unauthorized($msg = null){
+        $this->status(401)->send($msg);
+    }
 }
+
+
+
+
+// public function ok($obj = null){
+//     $this->status(200);
+//     if($obj)
+//     {
+//         if(!(is_array($obj) || is_object($obj))){
+//             $this->send($obj);
+//         }
+//         else $this->send($this->json_stringify($obj));
+//     }
+//     else $this->send();
+// }
+
+// public function created($obj = null){
+//     $this->status(201);
+//     if($obj)
+//     {
+//         if(!(is_array($obj) || is_object($obj))){
+//             $this->send($obj);
+//         }
+//         else $this->send($this->json_stringify($obj));
+//     }
+//     else $this->send();
+// }
+
+// public function noContent(){
+//     $this->status(204)->send();
+// }
+
+// public function badRequset($msg = null){
+//     $this->status(400)
+//     ->send(
+//         "<h1>Bad Requset</h1>".
+//         ($msg ? "<b>Error:</b><p>$msg</p>" : "")
+//     );
+// }
+
+// public function notFound($msg = null){
+//     $this->status(404)
+//     ->send(
+//         "<h1>Not Found</h1>".
+//         ($msg ? "<b>Error:</b><p>$msg</p>" : "")
+//     );
+// }
+
+// public function forbidden($msg = null){
+//     $this->status(403)
+//     ->send(
+//         "<h1>Forbidden</h1>".
+//         ($msg ? "<b>Error:</b><p>$msg</p>" : "")
+//     );
+// }
+
+// public function unauthorized($msg = null){
+//     $this->status(401)
+//     ->send(
+//         "<h1>Unauthorized</h1>".
+//         ($msg ? "<b>Error:</b><p>$msg</p>" : "")
+//     );
+// }
+
+
+
 ?>

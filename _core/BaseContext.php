@@ -15,7 +15,7 @@ interface ITableQueryGenerator{
     function table($tableName);
     public function drop();
     public function addPrimaryKey($columnName);
-    public function addColumn($name, $type, $size=null, $null=true, $default=null, $autoIncrement=false);
+    public function addColumn($name, $type, $size=null, $null=true, $default=null, $autoIncrement=false, $unique = false);
     public function addForeignKey($columnName, $refTableName, $refColumnName, $onDelete = null);
 }
 
@@ -73,6 +73,34 @@ class MySqlQueries implements ITableQuery, ISelectQuery{
         $this->baseContext->releaseConnection($this->connection);
     }
 
+    function prepareQuery($queryString) {
+        $query = $queryString;
+        $query_params = [];
+    
+        preg_match_all('/:([a-zA-Z0-9_]+)/', $query, $matches);
+    
+        if (!empty($matches[1])) {
+            $keys = $matches[1];
+    
+            foreach ($keys as $key) {
+                $placeholder = ':' . $key;
+                $query_params[$placeholder] = $query_params[$key];
+                $query = str_replace("'" . $query_params[$key] . "'", $placeholder, $query);
+            }
+        }
+    
+        return [$query, $query_params];
+    }
+
+    public function customQuery($queryString){
+        [$query, $query_params] = $this->prepareQuery($queryString);
+        
+        if(count($query_params) > 0){
+            $this->query($query, ...$query_params);
+        }else 
+        return $this->query($query);
+    }
+
     public function query($query): self
     {
         if (!$this->query_closed) {
@@ -127,6 +155,9 @@ class MySqlQueries implements ITableQuery, ISelectQuery{
             $query_params = $query_obj[1];
             $this->selectQueryGenerator->clear();
         }
+
+        // print_r($query_params);
+        // echo $query . "<br><br>";
         
         if($query){
             if(empty($query_params)){
@@ -183,9 +214,9 @@ class MySqlQueries implements ITableQuery, ISelectQuery{
         else $this->tableQueryGenerator->drop_table($this->table_name);
         return $this;
     }
-    public function addColumn($name, $type, $size=null, $null=true, $default=null, $autoIncrement=false) : ITableQuery
+    public function addColumn($name, $type, $size=null, $null=true, $default=null, $autoIncrement=false, $unique = false) : ITableQuery
     {
-        $this->tableQueryGenerator->addColumn($name, $type, $size, $null, $default, $autoIncrement);
+        $this->tableQueryGenerator->addColumn($name, $type, $size, $null, $default, $autoIncrement, $unique);
         return $this;
     }
   
@@ -203,6 +234,12 @@ class MySqlQueries implements ITableQuery, ISelectQuery{
 // </editor-fold>
 
 // <editor-fold defaultstate="collapsed" desc="QueryGenerator Region">
+
+    public function exists() : ISelectQuery
+    {
+        $this->selectQueryGenerator->exists();
+        return $this;
+    }
 
     public function delete() : ISelectQuery
     {
@@ -293,14 +330,16 @@ class MySQLTableQueryGenerator{
         $this->tableName = $table_name;
     }
 
-    public function addColumn($name, $type, $size=null, $null=true, $default=null, $autoIncrement=false) {
+    public function addColumn($name, $type, $size = null, $null = true, $default = null, $autoIncrement = false, $unique = false)
+    {
         $column = [
             'name' => $name,
             'type' => $type,
             'size' => $size,
             'null' => $null,
             'default' => $default,
-            'auto_increment' => $autoIncrement
+            'auto_increment' => $autoIncrement,
+            'unique' => $unique
         ];
         $this->columns[] = $column;
     }
@@ -321,11 +360,9 @@ class MySQLTableQueryGenerator{
 
     public function generate() {
         $query = "";
-        if(!empty($this->drop)){
+        if (!empty($this->drop)) {
             $query = "DROP TABLE IF EXISTS $this->tableName;";
-        }
-        else
-        {
+        } else {
             $query = "CREATE TABLE IF NOT EXISTS `" . $this->tableName . "` (\n";
             foreach ($this->columns as $column) {
                 $query .= "`" . $column['name'] . "` " . $column['type'];
@@ -340,6 +377,9 @@ class MySQLTableQueryGenerator{
                 }
                 if ($column['auto_increment']) {
                     $query .= " AUTO_INCREMENT";
+                }
+                if ($column['unique']) {
+                    $query .= " UNIQUE";
                 }
                 $query .= ",\n";
             }
@@ -365,6 +405,7 @@ class MySQLTableQueryGenerator{
 class MySQLSelectQueryGenerator
 {
     protected $need_to_close = false;
+    protected $isExists = false;
     protected $isDelete = false;
     protected $table;
     protected $select = [];
@@ -379,6 +420,7 @@ class MySQLSelectQueryGenerator
 
     public function is_ready(){
         if(
+            ($this->isExists && !empty($this->where))  ||
             ($this->isDelete && !empty($this->where))  ||
             !empty($this->select) ||
             !empty($this->insertData) ||
@@ -396,6 +438,10 @@ class MySQLSelectQueryGenerator
             $this->table = "$table AS $alias";
         }
         return $this;
+    }
+
+    public function exists(){
+        $this->isExists = true;
     }
 
     public function delete(){
@@ -455,7 +501,10 @@ class MySQLSelectQueryGenerator
         $this->insertData = [];
         $this->updateData = [];
         $this->need_to_close = false;
+        $this->isExists = false;
+        $this->isDelete = false;
         $this->bindings = [];
+        $this->query_params = [];
         return $this;
     }
 
@@ -548,6 +597,11 @@ class MySQLSelectQueryGenerator
         if (!empty($this->insertData)) {
             $query = $this->insert_data_logic($query);
 
+        } else if ($this->isExists) {
+
+            $query = "SELECT COUNT(*) FROM $this->table";
+            $query = $this->where_logic($query);
+            
         } else if ($this->isDelete) {
 
             $query = "DELETE FROM $this->table";
@@ -646,7 +700,7 @@ interface IDbSetTableQuery{
     public function execute();
     public function drop();
     public function addPrimaryKey($columnName);
-    public function addColumn($name, $type, $size=null, $null=true, $default=null, $autoIncrement=false);
+    public function addColumn($name, $type, $size=null, $null=true, $default=null, $autoIncrement=false, $unique = false);
     public function addForeignKey($columnName, $refTableName, $refColumnName, $onDelete = null);
 }
 
@@ -675,10 +729,21 @@ class DbSet implements IDbSetTableQuery, IDbSetSelectQueryy{
         $this->mySqlQueries->setFetchMode(\PDO::FETCH_CLASS, $this->table_class);
     }
 
+    public function customQuery($query): self
+    {
+        $this->mySqlQueries->customQuery($query);
+        return $this;
+    }
+
     public function execute(): self
     {
         $this->mySqlQueries->execute();
         return $this;
+    }
+
+    public function fetch()
+    {
+        return $this->mySqlQueries->pdo()->fetch(\PDO::FETCH_ASSOC);
     }
 
     public function lastInsertId()
@@ -705,9 +770,9 @@ class DbSet implements IDbSetTableQuery, IDbSetSelectQueryy{
         $this->mySqlQueries->drop($this->table_name);
         return $this;
     }
-    public function addColumn($name, $type, $size=null, $null=true, $default=null, $autoIncrement=false) : IDbSetTableQuery
+    public function addColumn($name, $type, $size=null, $null=true, $default=null, $autoIncrement=false, $unique = false) : IDbSetTableQuery
     {
-        $this->mySqlQueries->addColumn($name, $type, $size, $null, $default, $autoIncrement);
+        $this->mySqlQueries->addColumn($name, $type, $size, $null, $default, $autoIncrement, $unique);
         return $this;
     }
 
@@ -726,6 +791,19 @@ class DbSet implements IDbSetTableQuery, IDbSetSelectQueryy{
 
 
 // <editor-fold defaultstate="collapsed" desc="QueryGenerator Region">
+
+    public function existsWhere($column, $operator, $value) : bool
+    {
+        $res = $this->exists()->where($column, $operator, $value)->execute()->fetch();
+
+        return intval($res["COUNT(*)"]) > 0;
+    }
+
+    public function exists() : IDbSetSelectQueryy
+    {
+        $this->mySqlQueries->exists();
+        return $this;
+    }
 
     public function delete() : IDbSetSelectQueryy
     {
