@@ -27,7 +27,7 @@ $app->run();
 ```php
 $app = new Application();
 
-// render functions
+// render view
 $app->router->get('/', function(){
     // code...
     return "home";
@@ -48,7 +48,7 @@ $app->run();
 ```php
 $app = new Application();
 
-// render functions
+// render view
 $app->router->get('/', function(){
     // code...
     return "home/home";
