@@ -3,7 +3,6 @@
     
     class Application{
         public $baseDir;
-        public $basePath = "";
         public $router;
         public $request;
         public $response;
@@ -14,7 +13,7 @@
 
         public static $app;
 
-        public function __construct($dir){
+        public function __construct($dir = ""){
             self::$app = $this;
             
             $this->services = new ServiceCollection;

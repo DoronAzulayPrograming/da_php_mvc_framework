@@ -2,8 +2,6 @@
 
     namespace DafCore;
 
-use stdClass;
-
     class Router{
         public $request;
         public $response;

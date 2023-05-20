@@ -3,14 +3,32 @@
     namespace DafCore;
     
     class Request{
+
+        private $data = [];
+    
+        public function __set($name, $value) {
+            $this->data[$name] = $value;
+        }
+    
+        public function __get($name) {
+            return $this->data[$name] ?? null;
+        }
+        
         public function getPath(){
-            $path = $_SERVER['REQUEST_URI'];// ?? '/'; // $_SERVER['REQUEST_URI'] $_GET['url']
-            //$path = str_replace("mvc/","",$path);
+            $path = $_SERVER['REQUEST_URI']; // ?? '/'; // $_SERVER['REQUEST_URI'] $_GET['url']
+            $path = str_replace(Application::$app->baseDir, "", $path);
+            $path = str_replace("//", "/", $path);
+
             $position = strpos($path,'?');
-            if($position === false){
-                return $path;
+            if($position !== false){
+                $path = substr($path, 0, $position);
             }
-            return substr($path, 0, $position);
+
+            if (strlen($path) > 1 && substr($path, -1) === '/') {
+                $path = substr($path, 0, -1);
+            }
+            
+            return $path;
         }
 
         public function getMethod(){

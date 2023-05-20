@@ -27,6 +27,7 @@ interface ISelectQueryGenerator{
     public function limit($limit);
     public function insert($data);
     public function update($data);
+    public function join($table, $condition, $type = '', $join_model = null);
     public function delete();
 }
 
@@ -40,22 +41,6 @@ class MySqlQueries implements ITableQuery, ISelectQuery{
     public $selectQueryGenerator;
     private $baseContext;
 
-    private $fatchMode = null;
-    private $fatchMode_args;
-
-    public function setFetchMode($pdoFactchMode, $arg = null){
-        $this->fatchMode = $pdoFactchMode;
-        $this->fatchMode_args = $arg;
-    }
-
-    private function doFetchMode(){
-        if($this->fatchMode == null) return;
-        
-        if($this->fatchMode_args == null)
-            $this->query->setFetchMode($this->fatchMode);
-        else $this->query->setFetchMode($this->fatchMode, $this->fatchMode_args);
-    }
-    
     public function __construct(&$baseContext) {
         $this->baseContext = &$baseContext;
         $this->selectQueryGenerator = new MySQLSelectQueryGenerator();
@@ -108,21 +93,28 @@ class MySqlQueries implements ITableQuery, ISelectQuery{
         }
         
         if ($this->query = $this->connection->prepare($query)) {
-            $this->doFetchMode();
             $params = [];
             if (func_num_args() > 1) {
                 $x = func_get_args();
                 $params = array_slice($x, 1)[0];
             }
-            
+
+            // echo $query . "<br>";
+            // var_dump($params) . "<br>";
+
             if(!empty($params)){
-                if (!$this->query->execute($params)) {
-                    echo $query ."<br>";
-                    print_r($params). "<br>";
-                    $this->baseContext->error('$params Unable to process MySQL query (check your params)', $this->query->errorInfo());
+                // Bind the parameters
+                foreach ($params as $key => $value) {
+                    if (!$this->query->bindValue($key, $value)) {
+                        echo $query . "<br>";
+                        print_r($params) . "<br>";
+                        $this->baseContext->error('Unable to Bind Values (check your params)', $this->query->errorInfo());
+                    }
                 }
             }
-            else if (!$this->query->execute()) {
+            if (!$this->query->execute()) {
+                echo $query . "<br>";
+                print_r($params) . "<br>";
                 $this->baseContext->error('Unable to process MySQL query (check your params)', $this->query->errorInfo());
             }
 
@@ -186,7 +178,7 @@ class MySqlQueries implements ITableQuery, ISelectQuery{
     }
 
     public function fetchAllAs($class) : array{
-        return $this->query->fetchAll(\PDO::FETCH_CLASS, $class);
+        return $this->query->fetchAll(\PDO::FETCH_CLASS | \PDO::FETCH_PROPS_LATE, $class);
     }
     
     public function table($table, ?string $alias = null) : self
@@ -288,6 +280,12 @@ class MySqlQueries implements ITableQuery, ISelectQuery{
         return $this;
     }
 
+    public function join($table, $condition, $type = '', $join_model = null) : ISelectQuery
+    {
+        $this->selectQueryGenerator->join($table, $condition, $type, $join_model);
+        return $this;
+    }
+
 // </editor-fold>
 }
 
@@ -373,7 +371,7 @@ class MySQLTableQueryGenerator{
                     $query .= " NOT NULL";
                 }
                 if ($column['default'] !== null) {
-                    $query .= " DEFAULT '" . $column['default'] . "'";
+                    $query .= " DEFAULT " . $column['default'] . "";
                 }
                 if ($column['auto_increment']) {
                     $query .= " AUTO_INCREMENT";
@@ -409,6 +407,7 @@ class MySQLSelectQueryGenerator
     protected $isDelete = false;
     protected $table;
     protected $select = [];
+    protected $join = [];
     protected $where = [];
     protected $order = [];
     protected $limit;
@@ -428,6 +427,24 @@ class MySQLSelectQueryGenerator
         ) return true;
         
         return false;
+    }
+
+    public function clear()
+    {
+        //$this->table = null;
+        $this->select = [];
+        $this->where = [];
+        $this->order = [];
+        $this->limit = null;
+        $this->insertData = [];
+        $this->updateData = [];
+        $this->join = [];
+        $this->need_to_close = false;
+        $this->isExists = false;
+        $this->isDelete = false;
+        $this->bindings = [];
+        $this->query_params = [];
+        return $this;
     }
 
     public function table($table, ?string $alias = null)
@@ -456,6 +473,13 @@ class MySQLSelectQueryGenerator
 
     public function select($columns = "*")
     {
+        $exist = array_filter($this->select, function($col) use ($columns){
+            return $col === $columns;
+        });
+        if (!empty($exist)) {
+            return $this;
+        }
+
         if (is_array($columns)) {
             $this->select = $columns;
         } else {
@@ -491,23 +515,6 @@ class MySQLSelectQueryGenerator
         return $this;
     }
 
-    public function clear()
-    {
-        //$this->table = null;
-        $this->select = [];
-        $this->where = [];
-        $this->order = [];
-        $this->limit = null;
-        $this->insertData = [];
-        $this->updateData = [];
-        $this->need_to_close = false;
-        $this->isExists = false;
-        $this->isDelete = false;
-        $this->bindings = [];
-        $this->query_params = [];
-        return $this;
-    }
-
     public function insert($data)
     {
         $this->need_to_close = true;
@@ -519,6 +526,12 @@ class MySQLSelectQueryGenerator
     {
         $this->need_to_close = true;
         $this->updateData = $data;
+        return $this;
+    }
+
+    public function join($table, $condition, $type = '', $join_model = null)
+    {
+        $this->join[] = [$table, $condition, $type, $join_model];
         return $this;
     }
 
@@ -540,11 +553,39 @@ class MySQLSelectQueryGenerator
         return $query;
     }
 
+    function exists_in_where($column, $value){
+        $found = false;
+        $eq = false;
+
+        foreach ($this->where as $key => $item) {
+            if($item['column'] == $column){
+                $found = true;
+                if($item['value'] == $value)
+                    $eq = true;
+                break;
+            }
+        }
+
+        if($found && $eq) 
+            return 1;
+        else if($found)
+            return -1;
+        else 0;
+    }
+
     function update_data_logic() {
         $query = "UPDATE " . $this->table . " SET ";
     
         $updateStr = "";
         foreach ($this->updateData as $column => $value) {
+            $res = $this->exists_in_where($column , $value);
+            if($res == -1){
+                $updateStr .= $column . " = :new" . ucfirst($column) . ",";
+                $this->query_params[':new' . ucfirst($column)] = $value;
+            }
+
+            if($res == -1 || $res == 1) continue;
+
             $updateStr .= $column . " = :" . $column . ",";
             $this->query_params[':' . $column] = $value;
         }
@@ -554,12 +595,24 @@ class MySQLSelectQueryGenerator
         return $query;
     }
 
+    function join_logic($query)
+    {
+        if (!empty($this->join)) {
+            foreach ($this->join as $join) {
+                list($table, $condition, $type, $join_model) = $join;
+                $query .= " $type JOIN $table ON $condition";
+            }
+        }
+
+        return $query;
+    }
+
     function where_logic($query){
         if (!empty($this->where)) {
             $query .= " WHERE ";
             foreach ($this->where as $i => $clause) {
                 $query .= $clause['column'] . " " . $clause['operator'] . " :".$clause['column'];
-                $this->query_params[$clause['column']] = $clause['value'];
+                $this->query_params[':'.$clause['column']] = $clause['value'];
                 if ($i < count($this->where) - 1) {
                     $query .= " " . $clause['conjunction'] . " ";
                 }
@@ -611,23 +664,41 @@ class MySQLSelectQueryGenerator
 
             $query = $this->update_data_logic($query);
             $query = $this->where_logic($query);
-            
+
         } else {
             $query = "SELECT ";
-    
+            
             if (empty($this->select)) {
                 $query .= "*";
             } else {
+                
+                // if(!empty($this->join)){
+                //     $query .= "$this->table.*,";
+                //     foreach ($this->join as $join) {
+                //         list($table, $condition, $type, $join_model) = $join;
+                //         $model = new $join_model();
+                //         $properties = get_object_vars($model);
+                //         $prefixedProperties = array_map(function ($key) use ($table) {
+                //             return $table .'.'. $key . ' AS '. $table . '_' . $key;
+                //         }, array_keys($properties));
+                //         $query .= implode(",", $prefixedProperties);
+                //     }
+                // } else
                 $query .= implode(",", $this->select);
             }
     
             $query .= " FROM " . $this->table;
     
+            $query = $this->join_logic($query);
             $query = $this->where_logic($query);
             $query = $this->order_logic($query);
             $query = $this->limit_logic($query);
+
         }
-        
+
+        // print_r($this->query_params);
+        //echo $query."<br><br>";
+
         return array($query, $this->query_params);
     }
 
@@ -712,6 +783,7 @@ interface IDbSetSelectQueryy{
     public function limit($limit);
     public function insert($data);
     public function update($data);
+    public function join($table, $condition, $type = '', $join_model = null);
     public function delete();
 }
 
@@ -726,7 +798,6 @@ class DbSet implements IDbSetTableQuery, IDbSetSelectQueryy{
         $this->table_name = $table_name;
         $this->mySqlQueries = new MySqlQueries($baseContext);
         $this->mySqlQueries->table($this->table_name);
-        $this->mySqlQueries->setFetchMode(\PDO::FETCH_CLASS, $this->table_class);
     }
 
     public function customQuery($query): self
@@ -741,9 +812,9 @@ class DbSet implements IDbSetTableQuery, IDbSetSelectQueryy{
         return $this;
     }
 
-    public function fetch()
+    public function pdo() : \PDOStatement
     {
-        return $this->mySqlQueries->pdo()->fetch(\PDO::FETCH_ASSOC);
+        return $this->mySqlQueries->pdo();
     }
 
     public function lastInsertId()
@@ -751,16 +822,25 @@ class DbSet implements IDbSetTableQuery, IDbSetSelectQueryy{
         return $this->mySqlQueries->get_connection()->lastInsertId();
     }
     
-    public function fetchAll() : array{
+    public function many() : array{
         if(!$this->mySqlQueries->is_ready_for_execute())
         {
             $this->select()->execute();
         } else $this->execute();
-        return $this->mySqlQueries->pdo()->fetchAll();
+
+        return $this->mySqlQueries->fetchAllAs($this->table_class);
     }
     
-    public function single($column, $operator, $value) {
-        $this->where($column, $operator, $value)->execute();
+    public function single() {
+        $this->execute();
+        return $this->mySqlQueries->fetchAs($this->table_class);
+    }
+    
+    public function first() {
+        if(!$this->mySqlQueries->is_ready_for_execute())
+        {
+            $this->select()->execute();
+        } else $this->execute();
         return $this->mySqlQueries->fetchAs($this->table_class);
     }
     
@@ -794,15 +874,14 @@ class DbSet implements IDbSetTableQuery, IDbSetSelectQueryy{
 
     public function existsWhere($column, $operator, $value) : bool
     {
-        $res = $this->exists()->where($column, $operator, $value)->execute()->fetch();
-
-        return intval($res["COUNT(*)"]) > 0;
+        $count = $this->mySqlQueries->exists()->where($column, $operator, $value)->execute()->pdo()->fetchColumn();
+        return $count > 0;
     }
 
-    public function exists() : IDbSetSelectQueryy
+    public function exists() : bool
     {
-        $this->mySqlQueries->exists();
-        return $this;
+        $count = $this->mySqlQueries->exists()->execute()->pdo()->fetchColumn();
+        return $count > 0;
     }
 
     public function delete() : IDbSetSelectQueryy
@@ -850,6 +929,11 @@ class DbSet implements IDbSetTableQuery, IDbSetSelectQueryy{
         $this->mySqlQueries->update($data);
         return $this;
     }
-
+    
+    public function join($table, $condition, $type = '', $join_model = null) : IDbSetSelectQueryy{
+        $this->mySqlQueries->join($table, $condition, $type, $join_model);
+        return $this;
+    }
+    
 // </editor-fold>
 }

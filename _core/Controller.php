@@ -17,11 +17,13 @@
         }
 
         protected function redirect($location = ""){
-            header('Location: ' . Application::$app->basePath . $location);
+            header('Location: /' . Application::$app->baseDir . $location);
+            exit();
         }
         
         protected function redirectBack(){
             header('Location: ' . $_SERVER['HTTP_REFERER']);
+            exit();
         }
     }
     

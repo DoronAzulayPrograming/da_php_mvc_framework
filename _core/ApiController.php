@@ -22,5 +22,13 @@
         public function notFound($msg = null){
             return Application::$app->response->notFound($msg);
         }
+
+        public function forbidden($msg = null){
+            return Application::$app->response->forbidden($msg);
+        }
+
+        public function unauthorized($msg = null){
+            return Application::$app->response->unauthorized($msg);
+        }
     }
 ?>
