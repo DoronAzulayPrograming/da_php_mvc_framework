@@ -28,10 +28,7 @@ $app->run();
 $app = new Application();
 
 // render view
-$app->router->get('/', function(){
-    // code...
-    return "home";
-});
+$app->router->get('/', "home");
   
 $app->run();            
 ```
@@ -49,10 +46,7 @@ $app->run();
 $app = new Application();
 
 // render view
-$app->router->get('/', function(){
-    // code...
-    return "home/home";
-});
+$app->router->get('/', "home/home");
   
 $app->run();            
 ```
