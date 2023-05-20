@@ -1,3 +1,4 @@
+# Base Use
 ### Example-1
 - Project Root
   - _core
@@ -51,3 +52,35 @@ $app->router->get('/', "home/home");
 $app->run();            
 ```
 
+# Controller Use
+- Project Root
+  - _core
+  - app
+    - controllers
+        - HomeController.php
+    - views
+        - home
+            - index.php
+  - .htaccess
+  - index.php
+
+###### HomeController.php
+```php
+namespace App\Controllers;
+use DafCore\Controller;
+
+class HomeController extends Controller{
+    public function index(){
+        return $this->view("index");
+    }
+}         
+```
+###### index.php
+```php
+$app = new Application();
+
+// render view
+$app->router->get('/', [HomeController::class, 'index']);
+  
+$app->run();            
+```
