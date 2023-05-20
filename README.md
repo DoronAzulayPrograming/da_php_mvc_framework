@@ -1,8 +1,8 @@
-# Example-1
-\- Project Root
-  \- _core
-  \- .htaccess
-  \- index.php
+### Example-1
+- Project Root
+  - _core
+  - .htaccess
+  - index.php
 
 ```php
 $app = new Application();
@@ -15,14 +15,14 @@ $app->router->get('/', function(){
   
 $app->run();            
 ```
-# Example-2
-\- Project Root
-  \- _core
-  \- app
-    \- views
-        \- home.php
-  \- .htaccess
-  \- index.php
+### Example-2
+- Project Root
+  - _core
+  - app
+    - views
+        - home.php
+  - .htaccess
+  - index.php
 
 ```php
 $app = new Application();
@@ -32,15 +32,15 @@ $app->router->get('/', "home");
   
 $app->run();            
 ```
-# Example-3
-\- Project Root
-  \- _core
-  \- app
-    \- views
-        \- home
-            \- home.php
-  \- .htaccess
-  \- index.php
+### Example-3
+- Project Root
+  - _core
+  - app
+    - views
+        - home
+            - home.php
+  - .htaccess
+  - index.php
 
 ```php
 $app = new Application();
