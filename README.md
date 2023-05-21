@@ -26,6 +26,8 @@ $app->run();
   - index.php
 
 ```php
+require_once '_core/autoloader.inc.php';
+
 $app = new Application();
 
 // render view
@@ -44,6 +46,8 @@ $app->run();
   - index.php
 
 ```php
+require_once '_core/autoloader.inc.php';
+
 $app = new Application();
 
 // render view
@@ -66,6 +70,8 @@ $app->run();
 
 ###### HomeController.php
 ```php
+require_once '_core/autoloader.inc.php';
+
 namespace App\Controllers;
 use DafCore\Controller;
 
@@ -77,10 +83,52 @@ class HomeController extends Controller{
 ```
 ###### index.php
 ```php
+namespace App;
+require_once '_core/autoloader.inc.php';
+use App\Controllers;
+
 $app = new Application();
 
 // render view
 $app->router->get('/', [HomeController::class, 'index']);
   
 $app->run();            
+```
+
+
+# Minimal API
+```php
+require_once '_core/autoloader.inc.php';
+
+use DafCore\Application;
+use DafCore\AutoConstruct;
+use DafCore\JsonDB;
+
+class Product extends AutoConstruct{
+    public $id;
+    public $name;
+    public $price;
+}
+
+$database = (new JsonDB('products.json'))->autoId();
+
+$app = new Application(end(explode('/', __DIR__)));
+
+$app->router->get('/api/products', function($res) use ($database){
+    return $res->ok($database->getAll());
+});
+$app->router->get('/api/products/:id', function($res, $id) use ($database){
+    return $res->ok($database->getById($id));
+});
+$app->router->post('/api/products', function($body, $res) use ($database){
+    $product = $database->add(new Product(null, $body->name, $body->price));
+    return $res->created($product);
+});
+$app->router->delete('/api/products/:id', function($res, $id) use ($database){
+    $database->delete($id);
+    return $res->ok($id);
+});
+
+$app->run();
+
 ```
