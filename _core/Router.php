@@ -211,6 +211,8 @@
         public function renderView($view, $params = []){
             $layoutContent = $this->getLayoutContent();
             $viewContent = $this->getViewContent($view, $params);
+            if(empty($layoutContent))
+                return $viewContent;
             $layoutContent = str_replace("{{scripts}}", Application::$app->getScripts(), $layoutContent);
             return str_replace("{{content}}", $viewContent, $layoutContent);
         }
