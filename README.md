@@ -112,7 +112,7 @@ class Product extends AutoConstruct{
 
 $database = (new JsonDB('products.json'))->autoId();
 
-$app = new Application(end(explode('/', __DIR__)));
+$app = new Application();
 
 $app->router->get('/api/products', function($res) use ($database){
     return $res->ok($database->getAll());
@@ -131,4 +131,60 @@ $app->router->delete('/api/products/:id', function($res, $id) use ($database){
 
 $app->run();
 
+```
+
+
+# API Controllers
+###### ProductsController.php
+```php
+use App\Models\Product;
+use DafCore\ApiController;
+
+class ProductsController extends ApiController{
+    private $db;
+
+    public function __construct($db)
+    {
+        $this->db = $db;
+    }
+
+    function getAll(){
+        return $this->ok($this->db->getAll());
+    }
+
+    function getOne($id){
+        return $this->ok($this->db->getById($id));
+    }
+
+    function post($body){
+        $product = $this->db->add(new Product(null, $body->name, $body->price));
+        return $this->created($product);
+    }
+
+    function delete($id){
+        $this->db->delete($id);
+        return $this->ok($id);
+    }
+}
+```
+###### index.php
+```php
+namespace App;
+require_once '_core/autoloader.inc.php';
+
+use DafCore\Application;
+use DafCore\JsonDB;
+use ProductsController;
+
+$app = new Application();
+$app->services->addSingleton("db", function(){
+    return (new JsonDB('products.json'))->autoId();
+});
+
+$app->router->get('/api/products', [ProductsController::class, 'getAll']);
+$app->router->get('/api/products/:id', [ProductsController::class, 'getOne']);
+$app->router->post('/api/products', [ProductsController::class, 'post']);
+$app->router->delete('/api/products/:id', [ProductsController::class, 'delete']);
+
+$app->run();
 ```
