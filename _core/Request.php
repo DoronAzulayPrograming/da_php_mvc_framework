@@ -55,14 +55,14 @@
             foreach($_POST as $key => $value){
                 $params[$key] = filter_input(INPUT_POST, $key, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             }
-            return $params;
+            return (object)$params;
         }
 
         public function getBody(){
             $method = $this->getMethod();
             $body = [];
             if($method === 'post'){
-                $body = (object)$this->getPost();
+                $body = $this->getPost();
             }
             else if($method === 'put'){
                 $body = $this->getPut();

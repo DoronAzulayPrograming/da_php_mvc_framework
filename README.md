@@ -70,8 +70,6 @@ $app->run();
 
 ###### HomeController.php
 ```php
-require_once '_core/autoloader.inc.php';
-
 namespace App\Controllers;
 use DafCore\Controller;
 
