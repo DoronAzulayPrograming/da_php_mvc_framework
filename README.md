@@ -7,6 +7,7 @@
 
 ```php
 require_once '_core/autoloader.inc.php';
+
 $app = new Application();
 
 // render functions
